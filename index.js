@@ -4,13 +4,14 @@ const app = express()
 const port = process.env.PORT || 5000
 require('dotenv').config()
 
+
 // middleware
 app.use(cors())
 app.use(express.json())
 
 
 
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion , ObjectId } = require('mongodb');
 const uri = `mongodb+srv://${process.env.VITE_DB_USER}:${process.env.VITE_DB_PASS}@cluster0.04lxrta.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -28,8 +29,14 @@ async function run() {
         // meals
         app.get('/meals', async (req, res) => {
 
-
             const result = await mealsCollection.find().toArray();
+            res.send(result)
+        })
+
+        app.get('/meals/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await mealsCollection.findOne(query)
             res.send(result)
         })
 
