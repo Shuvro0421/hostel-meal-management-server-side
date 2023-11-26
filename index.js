@@ -124,7 +124,7 @@ async function run() {
 
 
         // meals
-        app.get('/meals'  , async (req, res) => {
+        app.get('/meals', async (req, res) => {
 
             const result = await mealsCollection.find().toArray();
             res.send(result)
@@ -138,39 +138,51 @@ async function run() {
         })
 
 
-        app.put('/meals/:id', async (req, res) => {
-            const id = req.params.id
-            const query = { _id: new ObjectId(id) }
+        // Like a meal
+        app.put('/meals/:id/like', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
 
             try {
-                // Find the meal by ID
                 const meal = await mealsCollection.findOne(query);
 
                 if (!meal) {
-                    // If the meal with the specified ID is not found, return a 404 status
                     return res.status(404).json({ error: 'Meal not found' });
                 }
 
-                // Check if the user has already liked the meal
-                const hasLiked = meal.likes > 0;
+                const updatedLikes = meal.likes + 1;
 
-                // Update the 'likes' field based on whether the user has already liked
-                const updatedLikes = hasLiked ? meal.likes - 1 : meal.likes + 1;
+                await mealsCollection.updateOne(query, { $set: { likes: updatedLikes } });
 
-                // Update the 'likes' field
-                const updatedMeal = await mealsCollection.updateOne(
-                    query,
-                    { $set: { likes: updatedLikes } }
-                );
-
-                // Return the updated meal data
                 res.json({ success: true, updatedMeal: { ...meal, likes: updatedLikes } });
             } catch (error) {
                 console.error('Error updating likes:', error.message);
-                // Handle the error, send an error response, or log it as needed
                 res.status(500).json({ error: 'Internal server error' });
             }
-        })
+        });
+
+        // Dislike a meal
+        app.put('/meals/:id/dislike', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+
+            try {
+                const meal = await mealsCollection.findOne(query);
+
+                if (!meal) {
+                    return res.status(404).json({ error: 'Meal not found' });
+                }
+
+                const updatedLikes = Math.max(0, meal.likes - 1);
+
+                await mealsCollection.updateOne(query, { $set: { likes: updatedLikes } });
+
+                res.json({ success: true, updatedMeal: { ...meal, likes: updatedLikes } });
+            } catch (error) {
+                console.error('Error updating dislikes:', error.message);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
 
         app.post('/requestMeals', async (req, res) => {
             try {
