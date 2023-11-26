@@ -138,51 +138,7 @@ async function run() {
         })
 
 
-        // Like a meal
-        app.put('/meals/:id/like', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-
-            try {
-                const meal = await mealsCollection.findOne(query);
-
-                if (!meal) {
-                    return res.status(404).json({ error: 'Meal not found' });
-                }
-
-                const updatedLikes = meal.likes + 1;
-
-                await mealsCollection.updateOne(query, { $set: { likes: updatedLikes } });
-
-                res.json({ success: true, updatedMeal: { ...meal, likes: updatedLikes } });
-            } catch (error) {
-                console.error('Error updating likes:', error.message);
-                res.status(500).json({ error: 'Internal server error' });
-            }
-        });
-
-        // Dislike a meal
-        app.put('/meals/:id/dislike', async (req, res) => {
-            const id = req.params.id;
-            const query = { _id: new ObjectId(id) };
-
-            try {
-                const meal = await mealsCollection.findOne(query);
-
-                if (!meal) {
-                    return res.status(404).json({ error: 'Meal not found' });
-                }
-
-                const updatedLikes = Math.max(0, meal.likes - 1);
-
-                await mealsCollection.updateOne(query, { $set: { likes: updatedLikes } });
-
-                res.json({ success: true, updatedMeal: { ...meal, likes: updatedLikes } });
-            } catch (error) {
-                console.error('Error updating dislikes:', error.message);
-                res.status(500).json({ error: 'Internal server error' });
-            }
-        });
+ 
 
         app.post('/requestMeals', async (req, res) => {
             try {
@@ -195,6 +151,13 @@ async function run() {
                 res.status(500).send('Internal Server Error');
             }
         })
+
+        app.get('/requestMeals', async (req, res) => {
+            const email = req.query.email;
+            const query = { email: email };
+            const result = await requestMealsCollection.find(query).toArray();
+            res.send(result);
+        });
 
         app.post('/reviews', async (req, res) => {
             try {
