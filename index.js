@@ -2,9 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const app = express()
 const jwt = require('jsonwebtoken');
-
-const port = process.env.PORT || 5000
 require('dotenv').config()
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const port = process.env.PORT || 5000
 
 
 // middleware
@@ -31,6 +31,8 @@ async function run() {
         const requestMealsCollection = client.db("mealsDb").collection("requestMeals")
         const reviewsCollection = client.db("mealsDb").collection("reviews")
         const userCollection = client.db("mealsDb").collection("users");
+        const packageCollection = client.db("mealsDb").collection("packages");
+        const packagePaymentCollection = client.db("bistroDb").collection("packagePayments");
 
         // jwt related api
         app.post('/jwt', async (req, res) => {
@@ -138,7 +140,7 @@ async function run() {
         })
 
 
- 
+
 
         app.post('/requestMeals', async (req, res) => {
             try {
@@ -181,6 +183,40 @@ async function run() {
 
             const result = await requestMealsCollection.find().toArray();
             res.send(result)
+        })
+        // package
+        app.get('/packages', async (req, res) => {
+
+            const result = await packageCollection.find().toArray();
+            res.send(result)
+        })
+        //package payment intent
+        app.post('/create-package-payment-intent', async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+            console.log(amount, 'amount inside the intent')
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        });
+
+        
+
+
+        app.get('/packagePayments/:email', verifyToken, async (req, res) => {
+            const query = { email: req.params.email }
+            if (req.params.email !== req.decoded.email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            const result = await packagePaymentCollection.find(query).toArray();
+            res.send(result);
         })
 
         // Connect the client to the server	(optional starting in v4.7)
