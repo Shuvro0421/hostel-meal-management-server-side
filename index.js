@@ -32,7 +32,7 @@ async function run() {
         const reviewsCollection = client.db("mealsDb").collection("reviews")
         const userCollection = client.db("mealsDb").collection("users");
         const packageCollection = client.db("mealsDb").collection("packages");
-        const packagePaymentCollection = client.db("bistroDb").collection("packagePayments");
+        const packagePaymentCollection = client.db("mealsDb").collection("packagePayments");
 
         // jwt related api
         app.post('/jwt', async (req, res) => {
@@ -207,9 +207,6 @@ async function run() {
             })
         });
 
-        
-
-
         app.get('/packagePayments/:email', verifyToken, async (req, res) => {
             const query = { email: req.params.email }
             if (req.params.email !== req.decoded.email) {
@@ -217,7 +214,27 @@ async function run() {
             }
             const result = await packagePaymentCollection.find(query).toArray();
             res.send(result);
+            console.log(result)
         })
+
+        app.get('/packagePayments', async (req, res) => {
+
+            const result = await packagePaymentCollection.find().toArray();
+            res.send(result)
+        })
+
+        app.post('/packagePayments', async (req, res) => {
+            try {
+                const packages = req.body;
+                console.log(packages);
+                const result = await packagePaymentCollection.insertOne(packages);
+                res.send(result);
+            } catch (error) {
+                console.error('Error inserting meal:', error);
+                res.status(500).send('Internal Server Error');
+            }
+        })
+
 
         // Connect the client to the server	(optional starting in v4.7)
         await client.connect();
