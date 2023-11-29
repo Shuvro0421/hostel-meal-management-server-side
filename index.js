@@ -33,6 +33,7 @@ async function run() {
         const userCollection = client.db("mealsDb").collection("users");
         const packageCollection = client.db("mealsDb").collection("packages");
         const packagePaymentCollection = client.db("mealsDb").collection("packagePayments");
+        const paymentCollection = client.db("mealsDb").collection("payments");
 
         // jwt related api
         app.post('/jwt', async (req, res) => {
@@ -139,6 +140,62 @@ async function run() {
             res.send(result)
         })
 
+        // Like a meal
+        app.post('/meals/like/:id', async (req, res) => {
+            const mealId = req.params.id;
+            const query = { _id: new ObjectId(mealId) };
+
+            // Fetch the current document to get the current value of "likes"
+            const currentMeal = await mealsCollection.findOne(query);
+
+            if (currentMeal) {
+                const update = { $inc: { likes: 1 } };
+                const result = await mealsCollection.updateOne(query, update);
+                res.send(result);
+            } else {
+                res.status(404).send({ error: 'Meal not found' });
+            }
+        });
+
+        // Like a meal
+        app.post('/meals/like/:id', async (req, res) => {
+            const mealId = req.params.id;
+            const query = { _id: new ObjectId(mealId) };
+
+            // Fetch the current document to get the current value of "likes"
+            const currentMeal = await mealsCollection.findOne(query);
+
+            if (currentMeal && currentMeal.likes >= 0) {
+                const update = { $inc: { likes: 1 } };
+                const result = await mealsCollection.updateOne(query, update);
+                res.send(result);
+            } else {
+                res.status(404).send({ error: 'Meal not found or already disliked' });
+            }
+        });
+
+        // Dislike a meal
+        app.post('/meals/dislike/:id', async (req, res) => {
+            const mealId = req.params.id;
+            const query = { _id: new ObjectId(mealId) };
+
+            // Fetch the current document to get the current value of "likes"
+            const currentMeal = await mealsCollection.findOne(query);
+
+            if (currentMeal && currentMeal.likes > 0) {
+                const update = { $inc: { likes: -1 } };
+                const result = await mealsCollection.updateOne(query, update);
+
+                // Check if likes are negative, set them to 0
+                if (result.modifiedCount > 0 && currentMeal.likes - 1 < 0) {
+                    await mealsCollection.updateOne({ _id: new ObjectId(mealId) }, { $set: { likes: 0 } });
+                }
+
+                res.send(result);
+            } else {
+                res.status(404).send({ error: 'Meal not found or already liked' });
+            }
+        });
 
 
 
@@ -166,7 +223,7 @@ async function run() {
             const query = { _id: new ObjectId(id) }
             const result = await requestMealsCollection.deleteOne(query);
             res.send(result);
-          });
+        });
 
         app.post('/reviews', async (req, res) => {
             try {
@@ -180,10 +237,21 @@ async function run() {
             }
         })
 
+
         app.get('/reviews', async (req, res) => {
 
             const result = await reviewsCollection.find().toArray();
             res.send(result)
+        })
+
+        app.get('/reviews/:email', verifyToken, async (req, res) => {
+            const query = { email: req.params.email }
+            if (req.params.email !== req.decoded.email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            const result = await reviewsCollection.find(query).toArray();
+            res.send(result);
+            console.log(result)
         })
 
         app.get('/requestMeals', async (req, res) => {
@@ -240,6 +308,55 @@ async function run() {
                 console.error('Error inserting meal:', error);
                 res.status(500).send('Internal Server Error');
             }
+        })
+
+
+        // payment intent
+        app.post('/create-payment-intent', async (req, res) => {
+            const { price } = req.body;
+            const amount = parseInt(price * 100);
+            console.log(amount, 'amount inside the intent')
+
+            const paymentIntent = await stripe.paymentIntents.create({
+                amount: amount,
+                currency: 'usd',
+                payment_method_types: ['card']
+            });
+
+            res.send({
+                clientSecret: paymentIntent.client_secret
+            })
+        });
+
+
+        app.get('/payments/:email', verifyToken, async (req, res) => {
+            const query = { email: req.params.email }
+            if (req.params.email !== req.decoded.email) {
+                return res.status(403).send({ message: 'forbidden access' });
+            }
+            const result = await paymentCollection.find(query).toArray();
+            res.send(result);
+        })
+
+        app.post('/payments', async (req, res) => {
+            const payment = req.body;
+            const paymentResult = await paymentCollection.insertOne(payment);
+
+            //  carefully delete each item from the cart
+            console.log('payment info', payment);
+            //  carefully delete each item from the cart
+            console.log('payment info', payment);
+            const query = {
+                _id: {
+                    $in: payment.cartIds.map(id => new ObjectId(id))
+                }
+            };
+
+            const deleteResult = await requestMealsCollection.deleteMany(query);
+
+
+
+            res.send({ paymentResult, deleteResult });
         })
 
 
