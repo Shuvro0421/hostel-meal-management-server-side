@@ -28,6 +28,7 @@ const client = new MongoClient(uri, {
 async function run() {
     try {
         const mealsCollection = client.db("mealsDb").collection("meals")
+        const upcomingCollection = client.db("mealsDb").collection("upcoming")
         const requestMealsCollection = client.db("mealsDb").collection("requestMeals")
         const reviewsCollection = client.db("mealsDb").collection("reviews")
         const userCollection = client.db("mealsDb").collection("users");
@@ -139,6 +140,33 @@ async function run() {
             const result = await mealsCollection.findOne(query)
             res.send(result)
         })
+
+        app.post('/meals', verifyToken, verifyAdmin, async (req, res) => {
+            const item = req.body;
+            const result = await mealsCollection.insertOne(item);
+            res.send(result);
+        });
+
+        // upcoming
+        app.get('/upcoming', async (req, res) => {
+
+            const result = await upcomingCollection.find().toArray();
+            res.send(result)
+        })
+
+        app.get('/upcoming/:id', async (req, res) => {
+            const id = req.params.id
+            const query = { _id: new ObjectId(id) }
+            const result = await upcomingCollection.findOne(query)
+            res.send(result)
+        })
+
+        app.post('/upcoming', verifyToken, verifyAdmin, async (req, res) => {
+            const item = req.body;
+            const result = await upcomingCollection.insertOne(item);
+            res.send(result);
+        });
+
 
         // Like a meal
         app.post('/meals/like/:id', async (req, res) => {
