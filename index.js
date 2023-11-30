@@ -141,9 +141,54 @@ async function run() {
             res.send(result)
         })
 
+
+
         app.post('/meals', verifyToken, verifyAdmin, async (req, res) => {
             const item = req.body;
             const result = await mealsCollection.insertOne(item);
+            res.send(result);
+        });
+
+        app.patch('/meals/:id', async (req, res) => {
+            try {
+                const item = req.body;
+                const id = req.params.id;
+                const filter = { _id: new ObjectId(id) };
+
+                const updatedDoc = {
+                    $set: {
+                        mealTitle: item.mealTitle,
+                        mealImage: item.mealImage,
+                        ingredients: item.ingredients,
+                        description: item.description,
+                        price: item.price,
+                        rating: item.rating,
+                        name: item.name,
+                        email: item.email,
+                    },
+                };
+
+                const result = await mealsCollection.updateOne(filter, updatedDoc);
+
+                if (result.modifiedCount > 0) {
+                    // If at least one document was modified, send a success response
+                    res.send({ success: true, modifiedCount: result.modifiedCount });
+                } else {
+                    // If no documents were modified, send a response indicating that the item wasn't found
+                    res.status(404).send({ success: false, message: 'Item not found' });
+                }
+
+                console.log(result);
+            } catch (error) {
+                console.error('Error updating meal:', error);
+                res.status(500).send('Internal Server Error');
+            }
+        });
+
+        app.delete('/meals/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await mealsCollection.deleteOne(query);
             res.send(result);
         });
 
@@ -166,6 +211,25 @@ async function run() {
             const result = await upcomingCollection.insertOne(item);
             res.send(result);
         });
+
+
+        app.delete('/upcoming/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await upcomingCollection.deleteOne(query);
+            res.send(result);
+        });
+
+        app.put('/upcoming/like/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) };
+
+            // Update the likes count in the database
+            const result = await upcomingCollection.updateOne(query, { $inc: { likes: 1 } });
+
+            res.send(result);
+        });
+
 
 
         // Like a meal
@@ -240,10 +304,28 @@ async function run() {
         })
 
         app.get('/requestMeals', async (req, res) => {
-            const email = req.query.email;
-            const query = { email: email };
-            const result = await requestMealsCollection.find(query).toArray();
-            res.send(result);
+
+            const result = await requestMealsCollection.find().toArray();
+            res.send(result)
+        })
+
+        app.put('/requestMeals/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const filter = { _id: new ObjectId(id) };
+                const update = { $set: { status: 'served' } };
+
+                const result = await requestMealsCollection.updateOne(filter, update);
+
+                if (result.modifiedCount > 0) {
+                    res.send({ success: true, modifiedCount: result.modifiedCount });
+                } else {
+                    res.status(404).send({ success: false, message: 'Item not found' });
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+                res.status(500).send('Internal Server Error');
+            }
         });
 
         app.delete('/requestMeals/:id', async (req, res) => {
@@ -266,6 +348,30 @@ async function run() {
         })
 
 
+        // Add this route for searching users by username or email
+        app.get('/requestMeals/search', async (req, res) => {
+            try {
+                const { query } = req.query;
+
+                // Use a regex pattern for case-insensitive search
+                const searchPattern = new RegExp(query, 'i');
+
+                // Perform a search on both username and email fields
+                const result = await requestMealsCollection.find({
+                    $or: [
+                        { name: searchPattern },
+                        { email: searchPattern }
+                    ]
+                }).toArray();
+
+                res.send(result);
+            } catch (error) {
+                console.error('Error searching for users:', error);
+                res.status(500).send('Internal Server Error');
+            }
+        });
+
+
         app.get('/reviews', async (req, res) => {
 
             const result = await reviewsCollection.find().toArray();
@@ -281,6 +387,13 @@ async function run() {
             res.send(result);
             console.log(result)
         })
+
+        app.delete('/reviews/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: new ObjectId(id) }
+            const result = await reviewsCollection.deleteOne(query);
+            res.send(result);
+        });
 
         app.get('/requestMeals', async (req, res) => {
 
